@@ -32,3 +32,9 @@ def numlist_to_b64list(nl):
         b64.append(BASE64[i1])
         b64.append(BASE64[i2])
     return b64
+
+def fixed_xor(l1, l2):
+    res = []
+    for a,b in zip(l1,l2):
+        res.append(a^b)
+    return res
