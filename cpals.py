@@ -47,11 +47,22 @@ def fixed_xor(s1, s2):
         res.append(a^b)
     return res
 
-def xor_encrypt(s1, v):
-    res = [x^v for x in s1]
+def xor(s, v):
+    res = [x^v for x in s]
     return res
 
-def score(s):
+def xor_loop(s):
+    maxscore = 0
+    maxbyte = 0
+    for i in range(256):
+        m = xor(s,i)
+        score = score_string(m)
+        if score > maxscore:
+            maxscore = score
+            maxbyte = i
+    return (maxscore,maxbyte)
+
+def score_string(s):
     score = 0
     for x in s:
         xo = chr(x)
