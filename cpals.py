@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Cryptopals utility functions
 
-from itertools import zip_longest
+from itertools import zip_longest, cycle
 
 BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
@@ -14,13 +14,7 @@ def grouper(iterable, n, fillvalue=None):
 def from_hexstring(s):
     res = []
     for x in s:
-        num = 0
-        if '0' <= x and x <= '9':
-            num = int(x)
-        elif 'a' <= x and x <= 'f':
-            num = ord(x) - ord('a') + 10
-        elif 'A' <= x and x <= 'F':
-            num = ord(x) - ord('A') + 10
+        num = hexdigit_to_dec(x)
         res.append(num)
     return res
 
@@ -62,6 +56,12 @@ def xor_loop(s):
             maxbyte = i
     return (maxscore,maxbyte)
 
+def xor_repeatkey(m,k):
+    res = []
+    for a,b in zip(m,cycle(k)):
+        res.append(a^b)
+    return res
+
 def score_string(s):
     score = 0
     for x in s:
@@ -91,6 +91,16 @@ def to_string(s):
     res = [chr(x) for x in s]
     return ''.join(res)
 
+def to_bytes(s):
+    res = [ord(x) for x in s]
+    return res
+
+def to_hexstring(s):
+    res = ''
+    for x in s:
+        res += str("{0:02x}".format(x))
+    return res
+
 def hexdigit_to_dec(h):
     if '0' <= h and h <= '9':
         return ord(h) - ord('0')
@@ -98,3 +108,5 @@ def hexdigit_to_dec(h):
         return ord(h) - ord('a') + 10
     elif 'A' <= h and h <= 'F':
         return ord(h) - ord('A') + 10
+    else:
+        return 0
