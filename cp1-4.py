@@ -8,7 +8,7 @@ maxbyte = 0
 maxline = []
 with open("./4.txt") as f:
     for line in f:
-        he = cpals.from_hexencoded(line.rstrip())
+        he = cpals.hexs_to_intl(line.rstrip())
         score,byte = cpals.xor_loop(he)
         if score > maxscore:
             maxscore = score

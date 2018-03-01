@@ -6,5 +6,7 @@ import cpals
 m = "Burning 'em, if you ain't quick and nimble\n\
 I go crazy when I hear a cymbal"
 k = "ICE"
-ct = cpals.to_hexstring(cpals.xor_repeatkey(cpals.to_bytes(m),cpals.to_bytes(k)))
+me = str.encode(m)
+ke = str.encode(k)
+ct = cpals.to_hexstring(cpals.xor_repeatkey(me,ke))
 print("{}".format(ct))

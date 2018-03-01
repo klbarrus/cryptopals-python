@@ -11,19 +11,25 @@ def grouper(iterable, n, fillvalue=None):
     args = [iter(iterable)] * n
     return zip_longest(*args, fillvalue=fillvalue)
 
-def from_hexstring(s):
+def hexs_to_bstr(s):
+    sr = ""
+    for i in range(0,len(s),2):
+        hexs = s[i:i+2]
+        sr += chr(int(hexs,16))
+    return sr
+
+def hexs_to_intl(s):
+    res = []
+    for i in range(0,len(s),2):
+        hexs = s[i:i+2]
+        res.append(int(hexs,16))
+    return res
+
+def hexs_to_list(s):
     res = []
     for x in s:
         num = hexdigit_to_dec(x)
         res.append(num)
-    return res
-
-def from_hexencoded(s):
-    res = []
-    for ha,hb in grouper(s,2,0):
-        a = hexdigit_to_dec(ha)
-        b = hexdigit_to_dec(hb)
-        res.append(a*16+b)
     return res
 
 def to_base64encoded(s):
@@ -110,3 +116,10 @@ def hexdigit_to_dec(h):
         return ord(h) - ord('A') + 10
     else:
         return 0
+
+def calc_editdist(s1, s2):
+    ed = 0
+    for a,b in zip(s1,s2):
+        x = a^b
+        ed += bin(x).count("1")
+    return ed
