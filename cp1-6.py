@@ -28,3 +28,16 @@ for ks in range(1, 41):
         minks = ks
 #    print("keysize {}, normalized edit distance {}".format(ks,ned))
 print("min ks {}, min ed {}".format(minks, mined))
+
+# transpose blocks and solve for individual byte of key
+key = []
+for i in range(0,minks):
+    block = [b64dec[x] for x in range(i,b64len,minks)]
+    ms, mb = cpals.xor_loop(block)
+    key.append(mb)
+print("key: {}".format(cpals.to_string(key)))
+
+# decrypt original message
+dm = cpals.xor_repeatkey(b64dec, key)
+print("message:")
+print("{}".format(cpals.to_string(dm)))
