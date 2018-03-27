@@ -48,6 +48,8 @@ rcon = \
     0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 
 ]
 
+xtime = lambda a: (((a << 1) ^ 0x1B) & 0xFF) if (a & 0x80) else (a << 1)
+
 def do_keyround_mix(t,p,i):
     k = [0] * 4
 # rotate left
@@ -79,19 +81,113 @@ def do_keyround(t,p):
     return k
 
 def expand_key_128(key_s):
-    w = [0] * 44
+    ek = [0] * 44
     key_b = cpals.hexs_to_intl(key_s)
-    w[0] = key_b[0:4]
-    w[1] = key_b[4:8]
-    w[2] = key_b[8:12]
-    w[3] = key_b[12:16]
+    ek[0] = key_b[0:4]
+    ek[1] = key_b[4:8]
+    ek[2] = key_b[8:12]
+    ek[3] = key_b[12:16]
     for i in range(4,44):
         if i % 4 == 0:
-            w[i] = do_keyround_mix(w[i-1], w[i-4], i//4)
+            ek[i] = do_keyround_mix(ek[i-1], ek[i-4], i//4)
         else:
-            w[i] = do_keyround(w[i-1], w[i-4])
-    for i in w:
-        print("w[] = {}".format(cpals.to_hexstring(i)))
+            ek[i] = do_keyround(ek[i-1], ek[i-4])
+    return ek
 
-test_128_cipher_key = "2b7e151628aed2a6abf7158809cf4f3c"
-expand_key_128(test_128_cipher_key)
+def get_round_key(ek, r):
+    rk = [0] * 4
+    off = r * 4
+    rk[0] = ek[off    ]
+    rk[1] = ek[off + 1]
+    rk[2] = ek[off + 2]
+    rk[3] = ek[off + 3]
+    return rk
+
+def aes_128_enc(in_s, key_s):
+    in_b = cpals.hexs_to_intl(in_s)
+    state = [[0 for x in range(4)] for y in range(4)]
+    for x in range(4):
+        for y in range(4):
+            state[y][x] = in_b[x*4 + y]
+# initial round (xor key)
+    ek = expand_key_128(key_s)
+    rkv = get_round_key(ek,0)
+#    debug_print(rkv, 'initial key')
+    for x in range(4):
+        for y in range(4):
+            state[y][x] ^= rkv[x][y]
+#    debug_print(state, 'after xor')
+# rounds 1 to 9
+    for r in range(1,10):
+    # sbox
+        for x in range(4):
+            for y in range(4):
+                state[y][x] = sbox[state[y][x]]
+#        debug_print(state, 'after sbox')
+    # shift rows
+        state[1][0],state[1][1],state[1][2],state[1][3] = state[1][1],state[1][2],state[1][3],state[1][0]
+        state[2][0],state[2][1],state[2][2],state[2][3] = state[2][2],state[2][3],state[2][0],state[2][1]
+        state[3][0],state[3][1],state[3][2],state[3][3] = state[3][3],state[3][0],state[3][1],state[3][2]
+#        debug_print(state, 'after shift rows')
+    # mix columns
+        a = [0] * 4
+        for x in range(4):
+            for y in range(4):
+                a[y] = state[y][x]
+            t = a[0] ^ a[1] ^ a[2] ^ a[3]
+            u = a[0]
+            a[0] ^= t ^ xtime(a[0] ^ a[1])
+            a[1] ^= t ^ xtime(a[1] ^ a[2])
+            a[2] ^= t ^ xtime(a[2] ^ a[3])
+            a[3] ^= t ^ xtime(a[3] ^ u)
+            for y in range(4):
+                state[y][x] = a[y]
+#        debug_print(state, 'after mix columns')
+    # xor key
+        rkv = get_round_key(ek,r)
+        for x in range(4):
+            for y in range(4):
+                state[y][x] ^= rkv[x][y]
+#        debug_print(state, 'after xor')
+# round 10 (no mix columns)
+    # sbox
+    for x in range(4):
+        for y in range(4):
+            state[y][x] = sbox[state[y][x]]
+#    debug_print(state, 'after sbox')
+    # shift rows
+    state[1][0],state[1][1],state[1][2],state[1][3] = state[1][1],state[1][2],state[1][3],state[1][0]
+    state[2][0],state[2][1],state[2][2],state[2][3] = state[2][2],state[2][3],state[2][0],state[2][1]
+    state[3][0],state[3][1],state[3][2],state[3][3] = state[3][3],state[3][0],state[3][1],state[3][2]
+#    debug_print(state, 'after shift rows')
+    # xor key
+    rkv = get_round_key(ek,10)
+    for x in range(4):
+        for y in range(4):
+            state[y][x] ^= rkv[x][y]
+#    debug_print(state, 'after xor')
+
+    return state
+
+def debug_print(arr, outs):
+    print("{}".format(outs))
+    for x in range(4):
+        r = cpals.to_hexstring(arr[x])
+        print("{}".format(r))
+    print("")
+
+# example key from fips spec
+test_128_cipher_key = '2b7e151628aed2a6abf7158809cf4f3c'
+#ek = expand_key_128(test_128_cipher_key)
+#for i in range(0,11):
+#    rk = get_round_key(ek, i)
+#    rs0 = cpals.to_hexstring(rk[0])
+#    rs1 = cpals.to_hexstring(rk[1])
+#    rs2 = cpals.to_hexstring(rk[2])
+#    rs3 = cpals.to_hexstring(rk[3])
+#    print("round {}, key {}{}{}{}".format(i,rs0,rs1,rs2,rs3))
+
+# example input from fips spec
+test_128_input = '3243f6a8885a308d313198a2e0370734'
+enc = aes_128_enc(test_128_input, test_128_cipher_key)
+debug_print(enc, 'encrypted')
