@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # cryptopals utility functions
 
-import itertools
+from itertools import zip_longest, cycle, combinations
 
 
 BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
@@ -11,7 +11,7 @@ def grouper(iterable, n, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
     args = [iter(iterable)] * n
-    return itertools.zip_longest(*args, fillvalue=fillvalue)
+    return zip_longest(*args, fillvalue=fillvalue)
 
 
 def hexs_to_bstr(s):
@@ -88,7 +88,7 @@ def xor_max(s):
 
 def xor_repeatkey(m, k):
     rv = bytearray()
-    for a, b in zip(m, itertools.cycle(k)):
+    for a, b in zip(m, cycle(k)):
         rv.append(a ^ b)
     return rv
 
@@ -156,3 +156,20 @@ def calc_editdist(s1, s2):
         x = a ^ b
         ed += bin(x).count("1")
     return ed
+
+
+# compare every combination of blocks looking for matches
+def detect_cbc(line):
+    rv = 0
+    blocks = [line[i:i+16] for i in range(0, len(line), 16)]
+    pairs = combinations(blocks, 2)
+    for p in pairs:
+        if p[0] == p[1]:
+            rv += 1
+    return rv
+
+
+def pkcs7_padding(sb, pad_len):
+    num = pad_len - len(sb)
+    sb = sb + bytes([num] * num)
+    return sb
