@@ -4,8 +4,13 @@
 import binascii
 
 
-# from FIPS 197, example key in A.1
-cipher_key = '2b7e151628aed2a6abf7158809cf4f3c'
+# from FIPS 197, example key in A.1, example input Appendix B
+aes_input_text =  '32 43 f6 a8 88 5a 30 8d 31 31 98 a2 e0 37 07 34'
+cipher_key_text = '2b 7e 15 16 28 ae d2 a6 ab f7 15 88 09 cf 4f 3c'
+
+# remove spaces that were added for readability
+aes_input_text = aes_input_text.replace(' ', '')
+cipher_key_text = cipher_key_text.replace(' ', '')
 
 # parameters for AES 128: key length in words, block size, number of rounds (Figure 4)
 Nk = 4
@@ -30,7 +35,8 @@ S = [0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xf
      0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
      0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16]
 
-Rcon = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36]
+Rcon = [0x00, 0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 0x20000000, 0x40000000,
+        0x80000000, 0x1b000000, 0x36000000]
 
 
 def word_to_bytes(word_in):
@@ -55,9 +61,49 @@ def RotWord(word_in):
     return rv
 
 
+def SubBytes(state_in):
+    for i in range(0, Nb):
+        state_in[i] = SubWord(state_in[i])
+
+
+def ShiftRows(state_in):
+    s00, s10, s20, s30 = word_to_bytes(state_in[0])
+    s01, s11, s21, s31 = word_to_bytes(state_in[1])
+    s02, s12, s22, s32 = word_to_bytes(state_in[2])
+    s03, s13, s23, s33 = word_to_bytes(state_in[3])
+    state_in[0] = s00 << 24 | s11 << 16 | s22 << 8 | s33
+    state_in[1] = s01 << 24 | s12 << 16 | s23 << 8 | s30
+    state_in[2] = s02 << 24 | s13 << 16 | s20 << 8 | s31
+    state_in[3] = s03 << 24 | s10 << 16 | s21 << 8 | s32
+
+
+# taken from wikipedia article "Rijndael_MixColumns"
+def MixColumns(state_in):
+    a = [0, 0, 0, 0]
+    b = [0, 0, 0, 0]
+    for i in range(0, Nb):
+        a[0], a[1], a[2], a[3] = word_to_bytes(state_in[i])
+        for j in range(0, 4):
+            h = 0x00
+            if a[j] & 0x80 != 0x00:
+                h = 0xff
+            b[j] = (a[j] << 1) & 0xff
+            b[j] = b[j] ^ (0x1b & h)
+        r0 = b[0] ^ a[3] ^ a[2] ^ b[1] ^ a[1]
+        r1 = b[1] ^ a[0] ^ a[3] ^ b[2] ^ a[2]
+        r2 = b[2] ^ a[1] ^ a[0] ^ b[3] ^ a[3]
+        r3 = b[3] ^ a[2] ^ a[1] ^ b[0] ^ a[0]
+        state_in[i] = r0 << 24 | r1 << 16 | r2 << 8 | r3
+
+
+def PrintState(state_in):
+    for i in range(0, Nb):
+        print('{}'.format(hex(state_in[i])))
+
+
 # w = [[0] for i in range(0, (Nr + 1) * Nk)]
 w = []
-key = binascii.a2b_hex(cipher_key)
+key = binascii.a2b_hex(cipher_key_text)
 
 # key expansion (Figure 11)
 i = 0
@@ -70,10 +116,43 @@ i = Nk
 while i < (Nb * (Nr + 1)):
     temp = w[i-1]
     if i % Nk == 0:
-        temp = SubWord(RotWord(temp)) ^ (Rcon[i//Nk] << 24)
+        temp = SubWord(RotWord(temp)) ^ (Rcon[i//Nk])
 #        print('  after rcon {}'.format(hex(temp)))
     elif Nk > 6 and (i % Nk) == 4:
         temp = SubWord(temp)
     w.append(w[i-Nk] ^ temp)
-    print('{} - {}'.format(i, hex(w[i])))
+#    print('{} - {}'.format(i, hex(w[i])))
     i = i + 1
+
+# encrypt (Figure 5)
+state = [0, 0, 0, 0]
+aes_input = binascii.a2b_hex(aes_input_text)
+key_counter = 0
+
+# state = in
+for i in range(0, Nb):
+    state[i] = int.from_bytes(aes_input[(i*Nb):(i+1)*Nb], 'big')
+
+# AddRoundKey
+for i in range(0, Nb):
+    state[i] = state[i] ^ w[key_counter]
+    key_counter += 1
+
+for aes_round in range(1, Nr):
+    SubBytes(state)
+    ShiftRows(state)
+    MixColumns(state)
+    for i in range(0, Nb):
+        state[i] = state[i] ^ w[key_counter]
+        key_counter += 1
+    print('end of round {}'.format(aes_round))
+    PrintState(state)
+    print('')
+
+SubBytes(state)
+ShiftRows(state)
+for i in range(0, Nb):
+    state[i] = state[i] ^ w[key_counter]
+    key_counter += 1
+
+PrintState(state)
