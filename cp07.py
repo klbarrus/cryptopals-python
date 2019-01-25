@@ -119,7 +119,25 @@ def InvShiftRows(state_in):
     state_in[3] = s03 << 24 | s12 << 16 | s21 << 8 | s30
 
 
-# samiam.org/galois.html
+# taken from wikipedia article "Rijndael_MixColumns"
+# def MixColumns1(state_in):
+#     a = [0, 0, 0, 0]
+#     b = [0, 0, 0, 0]
+#     for i in range(0, Nb):
+#         a[0], a[1], a[2], a[3] = word_to_bytes(state_in[i])
+#         for j in range(0, 4):
+#             h = 0x00
+#             if a[j] & 0x80 != 0x00:
+#                 h = 0xff
+#             b[j] = (a[j] << 1) & 0xff
+#             b[j] = b[j] ^ (0x1b & h)
+#         r0 = b[0] ^ a[3] ^ a[2] ^ b[1] ^ a[1]
+#         r1 = b[1] ^ a[0] ^ a[3] ^ b[2] ^ a[2]
+#         r2 = b[2] ^ a[1] ^ a[0] ^ b[3] ^ a[3]
+#         r3 = b[3] ^ a[2] ^ a[1] ^ b[0] ^ a[0]
+#         state_in[i] = r0 << 24 | r1 << 16 | r2 << 8 | r3
+
+
 def GMul(a, b):
     rv = 0
     while b > 0:
@@ -211,6 +229,10 @@ for i in range(0, Nb):
     state[i] = state[i] ^ w[key_counter]
     key_counter += 1
 
+print('end of round 1')
+PrintState(state)
+print('')
+
 for aes_round in range(1, Nr):
     SubBytes(state)
     ShiftRows(state)
@@ -218,9 +240,9 @@ for aes_round in range(1, Nr):
     for i in range(0, Nb):
         state[i] = state[i] ^ w[key_counter]
         key_counter += 1
-#    print('end of round {}'.format(aes_round))
-#    PrintState(state)
-#    print('')
+    print('end of round {}'.format(aes_round + 1))
+    PrintState(state)
+    print('')
 
 SubBytes(state)
 ShiftRows(state)
@@ -228,9 +250,42 @@ for i in range(0, Nb):
     state[i] = state[i] ^ w[key_counter]
     key_counter += 1
 
-print('output')
+print('output (encryption)')
 PrintState(state)
+print('')
 
 #
 # decrypt (Figure 12)
 #
+
+key_counter = ((Nr + 1) * Nb) - 1
+
+# AddRoundKey
+for i in range(Nb - 1, -1, -1):
+    state[i] = state[i] ^ w[key_counter]
+    key_counter -= 1
+
+print('end of round {}'.format(Nr))
+PrintState(state)
+print('')
+
+for aes_round in range(Nr - 1, 0, -1):
+    InvShiftRows(state)
+    InvSubBytes(state)
+    for i in range(Nb - 1, -1, -1):
+        state[i] = state[i] ^ w[key_counter]
+        key_counter -= 1
+    InvMixColumns(state)
+    print('end of round {}'.format(aes_round))
+    PrintState(state)
+    print('')
+
+InvSubBytes(state)
+InvShiftRows(state)
+for i in range(Nb - 1, -1, -1):
+    state[i] = state[i] ^ w[key_counter]
+    key_counter -= 1
+
+print('output (decryption)')
+PrintState(state)
+print('')
