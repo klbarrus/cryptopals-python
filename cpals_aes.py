@@ -9,6 +9,9 @@ Nk = 4
 Nb = 4
 Nr = 10
 
+# AES blocksize in bytes (standard says 182 bits)
+AES_BLOCK = 128 // 8
+
 # S-box (Figure 7)
 S = [0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
      0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -242,6 +245,26 @@ def encrypt(cipher_in, cipher_key):
     return rv
 
 
+def encrypt_ecb(cipher_in, cipher_key):
+    block = 0
+    rv = b''
+    w = KeyExpansion(cipher_key)
+
+    for j in range(0, len(cipher_in)//AES_BLOCK):
+        # state = in
+        state = [0, 0, 0, 0]
+        for i in range(0, Nb):
+            state[i] = int.from_bytes(cipher_in[(block * Nb):(block + 1) * Nb], 'big')
+            block += 1
+
+        state = Cipher(state, w)
+
+        for i in range(0, Nb):
+            rv += (state[i]).to_bytes(Nb, 'big')
+
+    return rv
+
+
 #
 # decrypt (Figure 12)
 #
@@ -294,5 +317,25 @@ def decrypt(cipher_in, cipher_key):
     rv = b''
     for i in range(0, Nb):
         rv += (state[i]).to_bytes(Nb, 'big')
+
+    return rv
+
+
+def decrypt_ecb(cipher_in, cipher_key):
+    block = 0
+    rv = b''
+    w = KeyExpansion(cipher_key)
+
+    for j in range(0, len(cipher_in)//AES_BLOCK):
+        # state = in
+        state = [0, 0, 0, 0]
+        for i in range(0, Nb):
+            state[i] = int.from_bytes(cipher_in[(block * Nb):(block + 1) * Nb], 'big')
+            block += 1
+
+        state = InvCipher(state, w)
+
+        for i in range(0, Nb):
+            rv += (state[i]).to_bytes(Nb, 'big')
 
     return rv
