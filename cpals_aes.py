@@ -248,11 +248,11 @@ def encrypt(cipher_in, cipher_key):
 def encrypt_ecb(cipher_in, cipher_key):
     block = 0
     rv = b''
+    state = [0, 0, 0, 0]
     w = KeyExpansion(cipher_key)
 
     for j in range(0, len(cipher_in)//AES_BLOCK):
         # state = in
-        state = [0, 0, 0, 0]
         for i in range(0, Nb):
             state[i] = int.from_bytes(cipher_in[(block * Nb):(block + 1) * Nb], 'big')
             block += 1
@@ -260,6 +260,29 @@ def encrypt_ecb(cipher_in, cipher_key):
         state = Cipher(state, w)
 
         for i in range(0, Nb):
+            rv += (state[i]).to_bytes(Nb, 'big')
+
+    return rv
+
+
+def encrypt_cbc(cipher_in, cipher_key):
+    block = 0
+    rv = b''
+    state = [0, 0, 0, 0]
+    iv = [0, 0, 0, 0]
+    w = KeyExpansion(cipher_key)
+
+    for j in range(0, len(cipher_in)//AES_BLOCK):
+        # state = in
+        for i in range(0, Nb):
+            state[i] = int.from_bytes(cipher_in[(block * Nb):(block + 1) * Nb], 'big')
+            state[i] ^= iv[i]
+            block += 1
+
+        state = Cipher(state, w)
+
+        for i in range(0, Nb):
+            iv[i] = state[i]
             rv += (state[i]).to_bytes(Nb, 'big')
 
     return rv
@@ -324,11 +347,11 @@ def decrypt(cipher_in, cipher_key):
 def decrypt_ecb(cipher_in, cipher_key):
     block = 0
     rv = b''
+    state = [0, 0, 0, 0]
     w = KeyExpansion(cipher_key)
 
     for j in range(0, len(cipher_in)//AES_BLOCK):
         # state = in
-        state = [0, 0, 0, 0]
         for i in range(0, Nb):
             state[i] = int.from_bytes(cipher_in[(block * Nb):(block + 1) * Nb], 'big')
             block += 1
@@ -336,6 +359,31 @@ def decrypt_ecb(cipher_in, cipher_key):
         state = InvCipher(state, w)
 
         for i in range(0, Nb):
+            rv += (state[i]).to_bytes(Nb, 'big')
+
+    return rv
+
+
+def decrypt_cbc(cipher_in, cipher_key):
+    block = 0
+    rv = b''
+    iv = [0, 0, 0, 0]
+    state = [0, 0, 0, 0]
+    state_copy = [0, 0, 0, 0]
+    w = KeyExpansion(cipher_key)
+
+    for j in range(0, len(cipher_in)//AES_BLOCK):
+        # state = in
+        for i in range(0, Nb):
+            state[i] = int.from_bytes(cipher_in[(block * Nb):(block + 1) * Nb], 'big')
+            state_copy[i] = state[i]
+            block += 1
+
+        state = InvCipher(state, w)
+
+        for i in range(0, Nb):
+            state[i] ^= iv[i]
+            iv[i] = state_copy[i]
             rv += (state[i]).to_bytes(Nb, 'big')
 
     return rv
